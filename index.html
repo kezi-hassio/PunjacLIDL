@@ -4,481 +4,195 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#10b981">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<title>EV Punjač Lidl [TEST]</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+<title>⚡ EV Punjač – Kaluđerica</title>
+
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
 <style>
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 26px;
+  height: 26px;
+  background: #10b981;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.slider::-moz-range-thumb {
+  width: 26px;
+  height: 26px;
+  background: #10b981;
+  border-radius: 50%;
+  cursor: pointer;
+}
 </style>
 </head>
+
 <body class="bg-gradient-to-br from-blue-50 to-green-50 min-h-screen p-4">
 
-<div class="max-w-md mx-auto mt-8">
-  <!-- TEST Badge -->
-  <div class="bg-yellow-400 text-black px-4 py-2 rounded-lg text-center font-bold mb-4">
-    🚧 TEST VERZIJA - SA ISTORIJOM 🚧
+<div class="max-w-md mx-auto space-y-6">
+
+<!-- HEADER -->
+<div class="text-center mt-6">
+  <h1 class="text-4xl font-bold">⚡ EV Punjač</h1>
+  <p class="text-gray-600">Lidl Kaluđerica · 20kW DC</p>
+  <div id="online" class="mt-2 text-sm text-green-700 bg-green-100 inline-block px-3 py-1 rounded-full">Online</div>
+</div>
+
+<!-- CARD -->
+<div class="bg-white rounded-xl shadow-xl p-6 border-2" id="card">
+  <div class="flex justify-between mb-4">
+    <div>
+      <div class="font-bold text-lg">Status</div>
+      <div id="statusText" class="text-green-600 font-semibold">Slobodan</div>
+    </div>
+    <div id="timeLeft" class="text-xl font-bold text-red-600 hidden"></div>
   </div>
 
-  <div class="text-center mb-8">
-    <h1 class="text-4xl font-bold text-gray-800 mb-2">⚡ EV Punjači</h1>
-    <p class="text-gray-600">Lidl Kaluđerica</p>
-    <div id="online-status" class="inline-block px-3 py-1 rounded-full text-xs font-semibold mt-2 bg-gray-200 text-gray-600">
-      🔄 Povezivanje...
-    </div>
+  <div id="freeView">
+    <button id="openModal" class="w-full bg-green-500 text-white py-3 rounded-lg font-bold text-lg hover:bg-green-600">
+      Check-in
+    </button>
   </div>
 
-  <div id="charger-card" class="bg-white rounded-lg shadow-lg p-6 border-2 mb-6">
-    <div class="flex justify-between items-start mb-4">
-      <div>
-        <h3 class="text-lg font-bold text-gray-800">EV Punjač Lidl Kaluđerica</h3>
-        <p class="text-sm text-gray-600">📍 Kaluđerica, Beograd</p>
-        <p class="text-sm text-gray-600 mt-1">🔋 20kW DC</p>
-      </div>
-      <div id="status-badge" class="px-3 py-1 rounded-full text-sm font-semibold bg-gray-200 text-gray-600">
-        Učitava...
-      </div>
-    </div>
-
-    <div id="occupied-view" class="hidden bg-red-50 rounded-lg p-4 border border-red-200">
-      <div class="flex items-center justify-between mb-3">
-        <div class="flex items-center">
-          <div class="w-12 h-12 bg-red-200 rounded-full flex items-center justify-center text-2xl mr-3">👤</div>
-          <div>
-            <div id="user-name" class="font-bold text-lg"></div>
-            <div class="text-sm text-gray-600">Punjač zauzet</div>
-          </div>
-        </div>
-        <div class="text-right">
-          <div id="time-left" class="text-red-600 font-bold text-xl">⏱️</div>
-          <div class="text-xs text-gray-500">preostalo</div>
-        </div>
-      </div>
-      
-      <div id="button-container"></div>
-    </div>
-
-    <div id="free-view" class="hidden">
-      <button id="checkin-btn" class="w-full bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600">
-        Check-in
-      </button>
-    </div>
-  </div>
-
-  <!-- ISTORIJA SEKCIJA -->
-  <div class="bg-white rounded-lg shadow-lg border-2 border-purple-300 mb-6">
-    <div 
-      class="bg-purple-500 text-white p-4 rounded-t-lg cursor-pointer flex items-center justify-between"
-      onclick="toggleHistory()"
-    >
-      <div class="flex items-center gap-2">
-        <span class="text-2xl">📜</span>
-        <h3 class="font-bold text-lg">Istorija rezervacija</h3>
-      </div>
-      <span id="history-toggle" class="text-xl">▶</span>
-    </div>
-
-    <div id="history-content" class="hidden p-4">
-      <div class="flex gap-2 mb-4">
-        <button id="today-btn" class="flex-1 px-3 py-2 bg-purple-100 text-purple-700 rounded-lg font-semibold hover:bg-purple-200 text-sm">
-          Danas
-        </button>
-        <button id="week-btn" class="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 text-sm">
-          Nedelja
-        </button>
-        <button id="all-btn" class="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 text-sm">
-          Sve
-        </button>
-      </div>
-
-      <div id="history-list" class="space-y-3 max-h-96 overflow-y-auto">
-        <p class="text-gray-400 text-center py-8">Učitavanje...</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-gray-700">
-    <p class="font-semibold mb-1">💡 Napomena:</p>
-    <p>Svi podaci su deljeni sa svim korisnicima aplikacije. Budi korektan! 🌍</p>
+  <div id="busyView" class="hidden space-y-3">
+    <div class="text-lg font-semibold" id="busyUser"></div>
+    <button id="releaseBtn" class="hidden w-full bg-green-500 text-white py-3 rounded-lg font-bold">
+      Oslobodi punjač
+    </button>
   </div>
 </div>
 
-<div id="modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-  <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
-    <h2 class="text-2xl font-bold text-gray-800 mb-4">Check-in</h2>
-    
-    <div class="mb-4">
-      <label class="block text-gray-700 font-semibold mb-2">Tvoje ime:</label>
-      <input id="name-input" type="text" placeholder="Unesi ime..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
-    </div>
+<!-- HISTORY -->
+<div class="bg-white rounded-xl shadow p-4">
+  <h3 class="font-bold mb-3">📜 Istorija punjenja</h3>
+  <div id="history" class="space-y-2 max-h-64 overflow-y-auto text-sm"></div>
+</div>
 
-    <div class="mb-6">
-      <label class="block text-gray-700 font-semibold mb-2">Koliko dugo? (minuta)</label>
-      <input id="duration-slider" type="range" min="15" max="300" step="15" value="30" class="w-full">
-      <div id="duration-display" class="text-center text-2xl font-bold text-green-600 mt-2">30 min</div>
+</div>
+
+<!-- MODAL -->
+<div id="modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+  <div class="bg-white rounded-xl p-6 w-full max-w-sm space-y-4">
+    <h2 class="text-xl font-bold">Check-in</h2>
+
+    <input id="nameInput" placeholder="Tvoje ime"
+      class="w-full border rounded-lg px-4 py-2 text-lg">
+
+    <div>
+      <div class="flex justify-between text-sm mb-1">
+        <span>Trajanje</span>
+        <span class="font-bold text-green-600" id="durationLabel">30 min</span>
+      </div>
+      <input id="slider" type="range" min="15" max="300" step="15" value="30"
+        class="w-full slider">
     </div>
 
     <div class="flex gap-3">
-      <button id="cancel-btn" class="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300">
-        Otkaži
-      </button>
-      <button id="confirm-btn" class="flex-1 px-4 py-3 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600">
+      <button id="cancel" class="flex-1 bg-gray-200 py-2 rounded-lg">Otkaži</button>
+      <button id="confirm" class="flex-1 bg-green-500 text-white py-2 rounded-lg font-bold">
         Potvrdi
       </button>
     </div>
   </div>
 </div>
 
-<div id="notification" class="hidden fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-4 rounded-lg shadow-2xl text-white font-semibold"></div>
-
 <script>
-try {
-  const firebaseConfig = {
-    apiKey: "AIzaSyCg-60AsktOtXqj3BOXuIZLY-6dfamqcmo",
-    authDomain: "ev-punjac-lidl.firebaseapp.com",
-    databaseURL: "https://ev-punjac-lidl-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "ev-punjac-lidl",
-    storageBucket: "ev-punjac-lidl.firebasestorage.app",
-    messagingSenderId: "355937933260",
-    appId: "1:355937933260:web:7939c0022a2103682f2f69"
-  };
+/* FIREBASE */
+firebase.initializeApp({
+  apiKey: "AIzaSyCg-60AsktOtXqj3BOXuIZLY-6dfamqcmo",
+  authDomain: "ev-punjac-lidl.firebaseapp.com",
+  databaseURL: "https://ev-punjac-lidl-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "ev-punjac-lidl"
+});
 
-  firebase.initializeApp(firebaseConfig);
-  const database = firebase.database();
-  const sessionRef = database.ref('charger_session');
-  const historyRef = database.ref('session_history');
+const db = firebase.database();
+const sessionRef = db.ref("session");
+const historyRef = db.ref("history");
 
-  let currentSession = null;
-  let duration = 30;
-  let historyFilter = 'today';
-
-  function getDeviceId() {
-    let deviceId = localStorage.getItem('myDeviceId_TEST');
-    
-    if (!deviceId) {
-      deviceId = 'device_TEST_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-      localStorage.setItem('myDeviceId_TEST', deviceId);
-    }
-    
-    return deviceId;
-  }
-
-  const myDeviceId = getDeviceId();
-
-  const modal = document.getElementById('modal');
-  const chargerCard = document.getElementById('charger-card');
-  const statusBadge = document.getElementById('status-badge');
-  const occupiedView = document.getElementById('occupied-view');
-  const freeView = document.getElementById('free-view');
-  const checkinBtn = document.getElementById('checkin-btn');
-  const confirmBtn = document.getElementById('confirm-btn');
-  const cancelBtn = document.getElementById('cancel-btn');
-  const nameInput = document.getElementById('name-input');
-  const durationSlider = document.getElementById('duration-slider');
-  const durationDisplay = document.getElementById('duration-display');
-  const userName = document.getElementById('user-name');
-  const timeLeft = document.getElementById('time-left');
-  const onlineStatus = document.getElementById('online-status');
-  const notification = document.getElementById('notification');
-  const buttonContainer = document.getElementById('button-container');
-  const historyList = document.getElementById('history-list');
-
-  function showNotification(message, isSuccess) {
-    notification.textContent = message;
-    notification.className = `fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-4 rounded-lg shadow-2xl text-white font-semibold ${isSuccess ? 'bg-green-500' : 'bg-red-500'}`;
-    notification.classList.remove('hidden');
-    setTimeout(() => notification.classList.add('hidden'), 3000);
-  }
-
-  // Toggle istorije
-  window.toggleHistory = function() {
-    const content = document.getElementById('history-content');
-    const toggle = document.getElementById('history-toggle');
-    
-    if (content.classList.contains('hidden')) {
-      content.classList.remove('hidden');
-      toggle.textContent = '▼';
-      loadHistory();
-    } else {
-      content.classList.add('hidden');
-      toggle.textContent = '▶';
-    }
-  };
-
-  // Filter dugmad
-  document.getElementById('today-btn').addEventListener('click', () => {
-    historyFilter = 'today';
-    updateFilterButtons();
-    loadHistory();
-  });
-
-  document.getElementById('week-btn').addEventListener('click', () => {
-    historyFilter = 'week';
-    updateFilterButtons();
-    loadHistory();
-  });
-
-  document.getElementById('all-btn').addEventListener('click', () => {
-    historyFilter = 'all';
-    updateFilterButtons();
-    loadHistory();
-  });
-
-  function updateFilterButtons() {
-    const buttons = {
-      today: document.getElementById('today-btn'),
-      week: document.getElementById('week-btn'),
-      all: document.getElementById('all-btn')
-    };
-
-    Object.keys(buttons).forEach(key => {
-      if (key === historyFilter) {
-        buttons[key].className = 'flex-1 px-3 py-2 bg-purple-100 text-purple-700 rounded-lg font-semibold hover:bg-purple-200 text-sm';
-      } else {
-        buttons[key].className = 'flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 text-sm';
-      }
-    });
-  }
-
-  // Učitaj istoriju
-  function loadHistory() {
-    historyList.innerHTML = '<p class="text-gray-400 text-center py-4">Učitavanje...</p>';
-
-    historyRef.orderByChild('startTime').limitToLast(100).once('value').then((snapshot) => {
-      const sessions = [];
-      snapshot.forEach((child) => {
-        sessions.push(child.val());
-      });
-
-      // Sortiraj od najnovijih
-      sessions.sort((a, b) => b.startTime - a.startTime);
-
-      // Filtriraj
-      const now = Date.now();
-      const oneDayAgo = now - (24 * 60 * 60 * 1000);
-      const oneWeekAgo = now - (7 * 24 * 60 * 60 * 1000);
-
-      let filtered = sessions;
-      if (historyFilter === 'today') {
-        filtered = sessions.filter(s => s.startTime > oneDayAgo);
-      } else if (historyFilter === 'week') {
-        filtered = sessions.filter(s => s.startTime > oneWeekAgo);
-      }
-
-      if (filtered.length === 0) {
-        historyList.innerHTML = '<p class="text-gray-400 text-center py-8">Nema rezervacija</p>';
-        return;
-      }
-
-      // Prikaži
-      historyList.innerHTML = filtered.map(session => {
-        const startDate = new Date(session.startTime);
-        const endDate = new Date(session.endTime);
-        const actualEnd = session.actualEndTime ? new Date(session.actualEndTime) : endDate;
-        
-        const dateStr = startDate.toLocaleDateString('sr-RS', { 
-          day: 'numeric', 
-          month: 'short',
-          year: startDate.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
-        });
-        
-        const startTimeStr = startDate.toLocaleTimeString('sr-RS', { hour: '2-digit', minute: '2-digit' });
-        const endTimeStr = actualEnd.toLocaleTimeString('sr-RS', { hour: '2-digit', minute: '2-digit' });
-        
-        const actualDuration = Math.round((actualEnd - startDate) / 60000);
-        const plannedDuration = session.duration;
-        
-        return `
-          <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-            <div class="flex justify-between items-start mb-2">
-              <div>
-                <div class="font-bold text-gray-800">${session.name}</div>
-                <div class="text-sm text-gray-600">${dateStr}</div>
-              </div>
-              <div class="text-right">
-                <div class="text-sm font-semibold text-purple-600">${actualDuration} min</div>
-                ${actualDuration !== plannedDuration ? `<div class="text-xs text-gray-500">(plan: ${plannedDuration} min)</div>` : ''}
-              </div>
-            </div>
-            <div class="flex items-center gap-2 text-sm text-gray-600">
-              <span>🕐 ${startTimeStr}</span>
-              <span>→</span>
-              <span>🕐 ${endTimeStr}</span>
-            </div>
-          </div>
-        `;
-      }).join('');
-    });
-  }
-
-  // Sačuvaj u istoriju
-  function saveToHistory(session) {
-    const historyEntry = {
-      ...session,
-      actualEndTime: Date.now(),
-      historyId: 'hist_' + Date.now()
-    };
-    
-    historyRef.push(historyEntry);
-    console.log('Saved to history:', historyEntry);
-  }
-
-  sessionRef.on('value', (snapshot) => {
-    const previousSession = currentSession;
-    currentSession = snapshot.val();
-    
-    // Ako je sesija oslobođena, sačuvaj u istoriju
-    if (previousSession && !currentSession) {
-      saveToHistory(previousSession);
-    }
-    
-    updateUI();
-    
-    onlineStatus.textContent = '✓ Online';
-    onlineStatus.className = 'inline-block px-3 py-1 rounded-full text-xs font-semibold mt-2 bg-green-100 text-green-700';
-  });
-
-  database.ref('.info/connected').on('value', (snapshot) => {
-    if (!snapshot.val()) {
-      onlineStatus.textContent = '✗ Offline';
-      onlineStatus.className = 'inline-block px-3 py-1 rounded-full text-xs font-semibold mt-2 bg-red-100 text-red-700';
-    }
-  });
-
-  function updateUI() {
-    if (currentSession && currentSession.endTime <= Date.now()) {
-      saveToHistory(currentSession);
-      sessionRef.remove();
-      currentSession = null;
-    }
-    
-    if (currentSession && currentSession.endTime > Date.now()) {
-      chargerCard.classList.add('border-red-300');
-      chargerCard.classList.remove('border-green-300');
-      statusBadge.textContent = 'Zauzet';
-      statusBadge.className = 'px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-700';
-      
-      occupiedView.classList.remove('hidden');
-      freeView.classList.add('hidden');
-      
-      userName.textContent = currentSession.name;
-      
-      const isMyDevice = currentSession.deviceId === myDeviceId;
-      
-      buttonContainer.innerHTML = '';
-      
-      if (isMyDevice) {
-        buttonContainer.innerHTML = `
-          <button onclick="releaseCharger()" class="w-full mt-3 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600">
-            ✓ Oslobodi punjač (MOJA REZERVACIJA)
-          </button>
-        `;
-      }
-      
-      updateTimeLeft();
-    } else {
-      chargerCard.classList.add('border-green-300');
-      chargerCard.classList.remove('border-red-300');
-      statusBadge.textContent = 'Slobodan';
-      statusBadge.className = 'px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-700';
-      
-      occupiedView.classList.add('hidden');
-      freeView.classList.remove('hidden');
-    }
-  }
-
-  function updateTimeLeft() {
-    if (!currentSession) return;
-    
-    const remaining = currentSession.endTime - Date.now();
-    
-    if (remaining > 0) {
-      const minutes = Math.floor(remaining / 60000);
-      const seconds = Math.floor((remaining % 60000) / 1000);
-      
-      if (minutes > 0) {
-        timeLeft.textContent = `${minutes} min`;
-      } else {
-        timeLeft.textContent = `${seconds} sek`;
-      }
-    } else {
-      timeLeft.textContent = 'Oslobađam...';
-      if (currentSession) {
-        saveToHistory(currentSession);
-      }
-      sessionRef.remove();
-    }
-  }
-
-  window.releaseCharger = function() {
-    if (confirm('Oslobodiš punjač?')) {
-      if (currentSession) {
-        saveToHistory(currentSession);
-      }
-      sessionRef.remove().then(() => {
-        showNotification('✓ Punjač oslobođen!', true);
-      }).catch((error) => {
-        console.error('Greška:', error);
-        showNotification('Greška pri oslobađanju!', false);
-      });
-    }
-  };
-
-  checkinBtn.addEventListener('click', () => {
-    modal.classList.remove('hidden');
-  });
-
-  cancelBtn.addEventListener('click', () => {
-    modal.classList.add('hidden');
-    nameInput.value = '';
-    duration = 30;
-    durationSlider.value = 30;
-    durationDisplay.textContent = '30 min';
-  });
-
-  durationSlider.addEventListener('click', (e) => {
-    duration = parseInt(e.target.value);
-    durationDisplay.textContent = `${duration} min`;
-  });
-
-  confirmBtn.addEventListener('click', () => {
-    const name = nameInput.value.trim();
-    
-    if (!name) {
-      showNotification('Unesi ime!', false);
-      return;
-    }
-    
-    const newSession = {
-      deviceId: myDeviceId,
-      name: name + ' [TEST]',  // Dodaj TEST marker
-      startTime: Date.now(),
-      endTime: Date.now() + (duration * 60 * 1000),
-      duration: duration
-    };
-    
-    sessionRef.set(newSession).then(() => {
-      modal.classList.add('hidden');
-      nameInput.value = '';
-      duration = 30;
-      durationSlider.value = 30;
-      durationDisplay.textContent = '30 min';
-      
-      showNotification('✓ Uspešno rezervisano!', true);
-    }).catch((error) => {
-      console.error('Greška:', error);
-      showNotification('Greška pri rezervaciji!', false);
-    });
-  });
-
-  setInterval(updateTimeLeft, 1000);
-
-} catch (error) {
-  console.error('CRITICAL ERROR:', error);
-  document.body.innerHTML = '<div style="padding:20px; text-align:center;"><h1>Greška pri učitavanju</h1><p>' + error.message + '</p></div>';
+/* DEVICE */
+let deviceId = localStorage.getItem("deviceId");
+if (!deviceId) {
+  deviceId = "dev_" + Math.random().toString(36).slice(2);
+  localStorage.setItem("deviceId", deviceId);
 }
+
+/* ELEMENTS */
+const modal = document.getElementById("modal");
+const slider = document.getElementById("slider");
+const durationLabel = document.getElementById("durationLabel");
+const confirmBtn = document.getElementById("confirm");
+
+/* SLIDER FIX */
+slider.addEventListener("input", () => {
+  durationLabel.textContent = slider.value + " min";
+});
+
+/* MODAL */
+document.getElementById("openModal").onclick = () => modal.classList.remove("hidden");
+document.getElementById("cancel").onclick = () => modal.classList.add("hidden");
+
+/* CONFIRM */
+confirmBtn.onclick = () => {
+  const name = document.getElementById("nameInput").value.trim();
+  const dur = parseInt(slider.value);
+  if (!name) return alert("Unesi ime");
+
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = "Upisujem...";
+
+  const now = Date.now();
+  const session = {
+    name,
+    deviceId,
+    start: now,
+    end: now + dur * 60000,
+    duration: dur
+  };
+
+  sessionRef.set(session).then(() => {
+    historyRef.push(session);
+    modal.classList.add("hidden");
+  }).finally(() => {
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = "Potvrdi";
+  });
+};
+
+/* SESSION LISTENER */
+sessionRef.on("value", snap => {
+  const s = snap.val();
+  const free = !s || s.end < Date.now();
+
+  document.getElementById("freeView").classList.toggle("hidden", !free);
+  document.getElementById("busyView").classList.toggle("hidden", free);
+  document.getElementById("statusText").textContent = free ? "Slobodan" : "Zauzet";
+
+  if (!free) {
+    document.getElementById("busyUser").textContent = "👤 " + s.name;
+    const mine = s.deviceId === deviceId;
+    document.getElementById("releaseBtn").classList.toggle("hidden", !mine);
+    document.getElementById("releaseBtn").onclick = () => sessionRef.remove();
+  }
+});
+
+/* HISTORY */
+historyRef.limitToLast(30).on("value", snap => {
+  const h = snap.val() || {};
+  const el = document.getElementById("history");
+  el.innerHTML = "";
+  Object.values(h).reverse().forEach(i => {
+    const t = new Date(i.start).toLocaleTimeString("sr-RS",{hour:"2-digit",minute:"2-digit"});
+    el.innerHTML += `
+      <div class="bg-gray-50 rounded px-3 py-2 flex justify-between">
+        <span>${i.name}</span>
+        <span class="text-gray-500">${t} · ${i.duration} min</span>
+      </div>`;
+  });
+});
 </script>
 
 </body>
