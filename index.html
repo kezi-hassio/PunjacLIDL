@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#10b981">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>EV Punjač Lidl</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.pulse-animation {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .5; }
+}
+</style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-green-50 min-h-screen p-4">
+
+<div class="max-w-md mx-auto mt-8">
+  <div class="text-center mb-8">
+    <h1 class="text-4xl font-bold text-gray-800 mb-2">⚡ EV Punjači</h1>
+    <p class="text-gray-600">Lidl Kaluđerica</p>
+    <div id="online-status" class="inline-block px-3 py-1 rounded-full text-xs font-semibold mt-2 bg-gray-200 text-gray-600">
+      🔄 Povezivanje...
+    </div>
+  </div>
+
+  <!-- Glavni punjač -->
+  <div id="charger-card" class="bg-white rounded-lg shadow-lg p-6 border-2 mb-6">
+    <div class="flex justify-between items-start mb-4">
+      <div>
+        <h3 class="text-lg font-bold text-gray-800">EV Punjač Lidl Kaluđerica</h3>
+        <p class="text-sm text-gray-600">📍 Kaluđerica, Beograd</p>
+        <p class="text-sm text-gray-600 mt-1">🔋 20kW DC</p>
+      </div>
+      <div id="status-badge" class="px-3 py-1 rounded-full text-sm font-semibold bg-gray-200 text-gray-600">
+        Učitava...
+      </div>
+    </div>
+
+    <div id="occupied-view" class="hidden bg-red-50 rounded-lg p-4 border border-red-200">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center">
+          <div class="w-12 h-12 bg-red-200 rounded-full flex items-center justify-center text-2xl mr-3">👤</div>
+          <div>
+            <div id="user-name" class="font-bold text-lg"></div>
+            <div class="text-sm text-gray-600">Punjač zauzet</div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div id="time-left" class="text-red-600 font-bold text-xl">⏱️</div>
+          <div class="text-xs text-gray-500">preostalo</div>
+        </div>
+      </div>
+      
+      <div id="button-container"></div>
+    </div>
+
+    <div id="free-view" class="hidden">
+      <button id="checkin-btn" class="w-full bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600">
+        Check-in
+      </button>
+    </div>
+  </div>
+
+  <!-- Lista čekanja -->
+  <div id="waiting-list-card" class="bg-white rounded-lg shadow-lg p-6 mb-6">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-bold text-gray-800">📋 Lista čekanja</h3>
+      <span id="queue-count" class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">0</span>
+    </div>
+
+    <div id="waiting-list" class="space-y-2 mb-4">
+      <div class="text-center text-gray-400 py-4">Nema ljudi u redu</div>
+    </div>
+
+    <div id="queue-actions" class="space-y-2">
+      <button id="join-queue-btn" class="w-full bg-blue-500 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-600">
+        + Pridruži se redu
+      </button>
+    </div>
+  </div>
+
+  <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-gray-700">
+    <p class="font-semibold mb-1">💡 Napomena:</p>
+    <p>Svi podaci su deljeni sa svim korisnicima aplikacije. Budi korektan! 🌍</p>
+  </div>
+</div>
+
+<!-- Modal za check-in -->
+<div id="modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+  <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+    <h2 class="text-2xl font-bold text-gray-800 mb-4">Check-in</h2>
+    
+    <div class="mb-4">
+      <label class="block text-gray-700 font-semibold mb-2">Tvoje ime:</label>
+      <input id="name-input" type="text" placeholder="Unesi ime..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+    </div>
+
+    <div class="mb-6">
+      <label class="block text-gray-700 font-semibold mb-2">Koliko dugo? (minuta)</label>
+      <input id="duration-slider" type="range" min="15" max="300" step="15" value="30" class="w-full">
+      <div id="duration-display" class="text-center text-2xl font-bold text-green-600 mt-2">30 min</div>
+    </div>
+
+    <div class="flex gap-3">
+      <button id="cancel-btn" class="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300">
+        Otkaži
+      </button>
+      <button id="confirm-btn" class="flex-1 px-4 py-3 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600">
+        Potvrdi
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal za pridruživanje redu -->
+<div id="queue-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+  <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+    <h2 class="text-2xl font-bold text-gray-800 mb-4">Pridruži se redu</h2>
+    
+    <div class="mb-4">
+      <label class="block text-gray-700 font-semibold mb-2">Tvoje ime:</label>
+      <input id="queue-name-input" type="text" placeholder="Unesi ime..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+    </div>
+
+    <div class="mb-6">
+      <label class="block text-gray-700 font-semibold mb-2">Koliko dugo ćeš se puniti? (minuta)</label>
+      <input id="queue-duration-slider" type="range" min="15" max="300" step="15" value="30" class="w-full">
+      <div id="queue-duration-display" class="text-center text-2xl font-bold text-blue-600 mt-2">30 min</div>
+    </div>
+
+    <div class="flex gap-3">
+      <button id="queue-cancel-btn" class="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300">
+        Otkaži
+      </button>
+      <button id="queue-confirm-btn" class="flex-1 px-4 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600">
+        Potvrdi
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="notification" class="hidden fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-4 rounded-lg shadow-2xl text-white font-semibold"></div>
+
+<script>
+try {
+  const firebaseConfig = {
+    apiKey: "AIzaSyCg-60AsktOtXqj3BOXuIZLY-6dfamqcmo",
+    authDomain: "ev-punjac-lidl.firebaseapp.com",
+    databaseURL: "https://ev-punjac-lidl-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "ev-punjac-lidl",
+    storageBucket: "ev-punjac-lidl.firebasestorage.app",
+    messagingSenderId: "355937933260",
+    appId: "1:355937933260:web:7939c0022a2103682f2f69"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const database = firebase.database();
+  const sessionRef = database.ref('charger_session');
+  const queueRef = database.ref('waiting_queue');
+
+  let currentSession = null;
+  let waitingQueue = [];
+  let duration = 30;
+  let queueDuration = 30;
+  let autoPromoteInProgress = false;
+
+  function getDeviceId() {
+    let deviceId = localStorage.getItem('myDeviceId');
+    
+    if (!deviceId) {
+      deviceId = 'device_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('myDeviceId', deviceId);
+      console.log('Created new device ID:', deviceId);
+    } else {
+      console.log('Using existing device ID:', deviceId);
+    }
+    
+    return deviceId;
+  }
+
+  const myDeviceId = getDeviceId();
+
+  // DOM elementi
+  const modal = document.getElementById('modal');
+  const queueModal = document.getElementById('queue-modal');
+  const chargerCard = document.getElementById('charger-card');
+  const statusBadge = document.getElementById('status-badge');
+  const occupiedView = document.getElementById('occupied-view');
+  const freeView = document.getElementById('free-view');
+  const checkinBtn = document.getElementById('checkin-btn');
+  const confirmBtn = document.getElementById('confirm-btn');
+  const cancelBtn = document.getElementById('cancel-btn');
+  const nameInput = document.getElementById('name-input');
+  const durationSlider = document.getElementById('duration-slider');
+  const durationDisplay = document.getElementById('duration-display');
+  const userName = document.getElementById('user-name');
+  const timeLeft = document.getElementById('time-left');
+  const onlineStatus = document.getElementById('online-status');
+  const notification = document.getElementById('notification');
+  const buttonContainer = document.getElementById('button-container');
+  
+  // Queue elementi
+  const waitingList = document.getElementById('waiting-list');
+  const queueCount = document.getElementById('queue-count');
+  const joinQueueBtn = document.getElementById('join-queue-btn');
+  const queueCancelBtn = document.getElementById('queue-cancel-btn');
+  const queueConfirmBtn = document.getElementById('queue-confirm-btn');
+  const queueNameInput = document.getElementById('queue-name-input');
+  const queueDurationSlider = document.getElementById('queue-duration-slider');
+  const queueDurationDisplay = document.getElementById('queue-duration-display');
+  const queueActions = document.getElementById('queue-actions');
+
+  function showNotification(message, isSuccess) {
+    notification.textContent = message;
+    notification.className = `fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-4 rounded-lg shadow-2xl text-white font-semibold ${isSuccess ? 'bg-green-500' : 'bg-red-500'}`;
+    notification.classList.remove('hidden');
+    setTimeout(() => notification.classList.add('hidden'), 3000);
+  }
+
+  // Listener za session
+  sessionRef.on('value', (snapshot) => {
+    const previousSession = currentSession;
+    currentSession = snapshot.val();
+    console.log('Session update:', currentSession);
+    console.log('Previous session:', previousSession);
+    
+    // Proveri da li je session upravo istekao
+    if (previousSession && !currentSession && !autoPromoteInProgress) {
+      console.log('Session expired, promoting next in queue...');
+      promoteNextInQueue();
+    }
+    
+    updateUI();
+    
+    onlineStatus.textContent = '✓ Online';
+    onlineStatus.className = 'inline-block px-3 py-1 rounded-full text-xs font-semibold mt-2 bg-green-100 text-green-700';
+  });
+
+  // Listener za queue
+  queueRef.on('value', (snapshot) => {
+    const queueData = snapshot.val();
+    waitingQueue = queueData ? Object.entries(queueData).map(([key, value]) => ({
+      id: key,
+      ...value
+    })).sort((a, b) => a.timestamp - b.timestamp) : [];
+    
+    console.log('Queue update:', waitingQueue);
+    updateQueueUI();
+  });
+
+  database.ref('.info/connected').on('value', (snapshot) => {
+    if (!snapshot.val()) {
+      onlineStatus.textContent = '✗ Offline';
+      onlineStatus.className = 'inline-block px-3 py-1 rounded-full text-xs font-semibold mt-2 bg-red-100 text-red-700';
+    }
+  });
+
+  function updateUI() {
+    // Proveri da li je session istekao
+    if (currentSession && currentSession.endTime <= Date.now()) {
+      console.log('Session time expired, removing...');
+      if (!autoPromoteInProgress) {
+        sessionRef.remove();
+      }
+      return;
+    }
+    
+    if (currentSession && currentSession.endTime > Date.now()) {
+      chargerCard.classList.add('border-red-300');
+      chargerCard.classList.remove('border-green-300');
+      statusBadge.textContent = 'Zauzet';
+      statusBadge.className = 'px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-700';
+      
+      occupiedView.classList.remove('hidden');
+      freeView.classList.add('hidden');
+      
+      userName.textContent = currentSession.name;
+      
+      const isMyDevice = currentSession.deviceId === myDeviceId;
+      
+      buttonContainer.innerHTML = '';
+      
+      if (isMyDevice) {
+        buttonContainer.innerHTML = `
+          <button onclick="releaseCharger()" class="w-full mt-3 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600">
+            ✓ Oslobodi punjač (MOJA REZERVACIJA)
+          </button>
+        `;
+      }
+      
+      updateTimeLeft();
+    } else {
+      chargerCard.classList.add('border-green-300');
+      chargerCard.classList.remove('border-red-300');
+      statusBadge.textContent = 'Slobodan';
+      statusBadge.className = 'px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-700';
+      
+      occupiedView.classList.add('hidden');
+      freeView.classList.remove('hidden');
+    }
+  }
+
+  function updateQueueUI() {
+    queueCount.textContent = waitingQueue.length;
+    
+    if (waitingQueue.length === 0) {
+      waitingList.innerHTML = '<div class="text-center text-gray-400 py-4">Nema ljudi u redu</div>';
+    } else {
+      waitingList.innerHTML = waitingQueue.map((person, index) => {
+        const isMyEntry = person.deviceId === myDeviceId;
+        const positionEmoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+        const cardClass = isMyEntry ? 'bg-blue-50 border-blue-300' : 'bg-gray-50 border-gray-200';
+        const pulseClass = index === 0 ? 'pulse-animation' : '';
+        
+        return `
+          <div class="${cardClass} ${pulseClass} border rounded-lg p-3">
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center">
+                <span class="text-lg mr-3">${positionEmoji}</span>
+                <div>
+                  <div class="font-semibold text-gray-800">${person.name}</div>
+                  <div class="text-xs text-gray-500">
+                    ${new Date(person.timestamp).toLocaleTimeString('sr-RS', {hour: '2-digit', minute: '2-digit'})}
+                    ${isMyEntry ? '• <span class="text-blue-600 font-semibold">TI</span>' : ''}
+                  </div>
+                </div>
+              </div>
+              ${isMyEntry ? `
+                <button onclick="leaveQueue('${person.id}')" class="text-red-500 hover:text-red-700 font-semibold text-sm px-3 py-1 rounded hover:bg-red-50">
+                  Izađi
+                </button>
+              ` : ''}
+            </div>
+            <div class="flex items-center ml-9">
+              <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold">
+                ⏱️ ${person.duration || 30} min
+              </span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Proveri da li je korisnik već u redu
+    const isInQueue = waitingQueue.some(p => p.deviceId === myDeviceId);
+    const isCharging = currentSession && currentSession.deviceId === myDeviceId;
+
+    if (isInQueue || isCharging) {
+      queueActions.innerHTML = `
+        <div class="text-center text-gray-500 text-sm py-2">
+          ${isCharging ? '⚡ Trenutno punjaš' : '✓ Već si u redu'}
+        </div>
+      `;
+    } else {
+      queueActions.innerHTML = `
+        <button id="join-queue-btn-new" class="w-full bg-blue-500 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-600">
+          + Pridruži se redu
+        </button>
+      `;
+      
+      document.getElementById('join-queue-btn-new')?.addEventListener('click', () => {
+        queueModal.classList.remove('hidden');
+      });
+    }
+  }
+
+  function updateTimeLeft() {
+    if (!currentSession) return;
+    
+    const remaining = currentSession.endTime - Date.now();
+    
+    if (remaining > 0) {
+      const minutes = Math.floor(remaining / 60000);
+      const seconds = Math.floor((remaining % 60000) / 1000);
+      
+      if (minutes > 0) {
+        timeLeft.textContent = `${minutes} min`;
+      } else {
+        timeLeft.textContent = `${seconds} sek`;
+      }
+    } else {
+      timeLeft.textContent = 'Oslobađam...';
+      if (!autoPromoteInProgress) {
+        sessionRef.remove();
+      }
+    }
+  }
+
+  async function promoteNextInQueue() {
+    if (autoPromoteInProgress) {
+      console.log('Auto-promote already in progress, skipping...');
+      return;
+    }
+
+    if (waitingQueue.length === 0) {
+      console.log('Queue is empty, nothing to promote');
+      return;
+    }
+
+    autoPromoteInProgress = true;
+    console.log('Starting auto-promotion...');
+
+    try {
+      const nextPerson = waitingQueue[0];
+      console.log('Promoting person:', nextPerson);
+
+      // Kreiraj novu sesiju sa podacima iz reda
+      const newSession = {
+        deviceId: nextPerson.deviceId,
+        name: nextPerson.name,
+        startTime: Date.now(),
+        endTime: Date.now() + (nextPerson.duration * 60 * 1000),
+        duration: nextPerson.duration,
+        autoPromoted: true
+      };
+
+      // Prvo postavi novu sesiju
+      await sessionRef.set(newSession);
+      console.log('New session created');
+
+      // Zatim ukloni osobu iz reda
+      await queueRef.child(nextPerson.id).remove();
+      console.log('Person removed from queue');
+
+      // Obavesti korisnika
+      showNotification(`🎉 ${nextPerson.name} je sada na punu!`, true);
+      
+      // Ako je to moj device, dodatno obaveštenje
+      if (nextPerson.deviceId === myDeviceId) {
+        setTimeout(() => {
+          showNotification('⚡ Tvoj red! Punjenje počinje!', true);
+        }, 1000);
+      }
+
+    } catch (error) {
+      console.error('Error during auto-promote:', error);
+      showNotification('Greška pri auto-promociji!', false);
+    } finally {
+      autoPromoteInProgress = false;
+      console.log('Auto-promotion completed');
+    }
+  }
+
+  window.releaseCharger = function() {
+    if (confirm('Oslobodiš punjač?')) {
+      sessionRef.remove().then(() => {
+        showNotification('✓ Punjač oslobođen!', true);
+      }).catch((error) => {
+        console.error('Greška:', error);
+        showNotification('Greška pri oslobađanju!', false);
+      });
+    }
+  };
+
+  window.leaveQueue = function(queueId) {
+    if (confirm('Izađi iz reda?')) {
+      queueRef.child(queueId).remove().then(() => {
+        showNotification('✓ Izašao si iz reda', true);
+      }).catch((error) => {
+        console.error('Greška:', error);
+        showNotification('Greška!', false);
+      });
+    }
+  };
+
+  // Check-in modal
+  checkinBtn.addEventListener('click', () => {
+    modal.classList.remove('hidden');
+  });
+
+  cancelBtn.addEventListener('click', () => {
+    modal.classList.add('hidden');
+    nameInput.value = '';
+    duration = 30;
+    durationSlider.value = 30;
+    durationDisplay.textContent = '30 min';
+  });
+
+  durationSlider.addEventListener('input', (e) => {
+    duration = parseInt(e.target.value);
+    durationDisplay.textContent = `${duration} min`;
+  });
+
+  confirmBtn.addEventListener('click', () => {
+    const name = nameInput.value.trim();
+    
+    if (!name) {
+      showNotification('Unesi ime!', false);
+      return;
+    }
+    
+    const newSession = {
+      deviceId: myDeviceId,
+      name: name,
+      startTime: Date.now(),
+      endTime: Date.now() + (duration * 60 * 1000),
+      duration: duration
+    };
+    
+    sessionRef.set(newSession).then(() => {
+      // Ukloni iz reda ako je bio u redu
+      const myQueueEntry = waitingQueue.find(p => p.deviceId === myDeviceId);
+      if (myQueueEntry) {
+        queueRef.child(myQueueEntry.id).remove();
+      }
+      
+      modal.classList.add('hidden');
+      nameInput.value = '';
+      duration = 30;
+      durationSlider.value = 30;
+      durationDisplay.textContent = '30 min';
+      
+      showNotification('✓ Uspešno rezervisano!', true);
+    }).catch((error) => {
+      console.error('Greška:', error);
+      showNotification('Greška pri rezervaciji!', false);
+    });
+  });
+
+  // Queue modal - slider
+  queueDurationSlider.addEventListener('input', (e) => {
+    queueDuration = parseInt(e.target.value);
+    queueDurationDisplay.textContent = `${queueDuration} min`;
+  });
+
+  // Queue modal - cancel
+  queueCancelBtn.addEventListener('click', () => {
+    queueModal.classList.add('hidden');
+    queueNameInput.value = '';
+    queueDuration = 30;
+    queueDurationSlider.value = 30;
+    queueDurationDisplay.textContent = '30 min';
+  });
+
+  // Queue modal - confirm
+  queueConfirmBtn.addEventListener('click', () => {
+    const name = queueNameInput.value.trim();
+    
+    if (!name) {
+      showNotification('Unesi ime!', false);
+      return;
+    }
+    
+    // Proveri da li je već u redu
+    const isAlreadyInQueue = waitingQueue.some(p => p.deviceId === myDeviceId);
+    if (isAlreadyInQueue) {
+      showNotification('Već si u redu!', false);
+      return;
+    }
+    
+    const newQueueEntry = {
+      deviceId: myDeviceId,
+      name: name,
+      timestamp: Date.now(),
+      duration: queueDuration
+    };
+    
+    queueRef.push(newQueueEntry).then(() => {
+      queueModal.classList.add('hidden');
+      queueNameInput.value = '';
+      queueDuration = 30;
+      queueDurationSlider.value = 30;
+      queueDurationDisplay.textContent = '30 min';
+      showNotification('✓ Dodat si u red!', true);
+    }).catch((error) => {
+      console.error('Greška:', error);
+      showNotification('Greška!', false);
+    });
+  });
+
+  setInterval(updateTimeLeft, 1000);
+
+} catch (error) {
+  console.error('CRITICAL ERROR:', error);
+  document.body.innerHTML = '<div style="padding:20px; text-align:center;"><h1>Greška pri učitavanju</h1><p>' + error.message + '</p></div>';
+}
+</script>
+
+</body>
+</html>
